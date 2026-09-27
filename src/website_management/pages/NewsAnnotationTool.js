@@ -109,12 +109,12 @@ const getSubcategoryDefinition = (label) => {
    Study loading + highlighting helpers
 ------------------------------ */
 
-const ARTICLE_CSV_PATH = "/article_dataset_versions/fullHitNP.csv";
+const ARTICLE_CSV_PATH = "/article_dataset_versions/fullHitPolarizing.csv";
 const ANNOTATIONS_PATH = "/final_annotations.json";
 const ARTICLES_PER_PARTICIPANT = 5;
 const MAX_PER_ARTICLE = 3;
-const EXPECTED_ARTICLE_COUNT = 364;
-const ARTICLE_USAGE_NODE = "articleUsageNP";
+const EXPECTED_ARTICLE_COUNT = 187;
+const ARTICLE_USAGE_NODE = "articleUsagePolarizing";
 const COMPLETION_CODE = "CH70G54C";
 
 const AGREEMENT_OPTIONS = [
@@ -329,7 +329,14 @@ function getAnnotationsForArticle(rawAnnotations, articleIndex, articleTitle) {
     throw new Error("final_annotations.json must contain an array of articles.");
   }
 
-  const matches = rawAnnotations.filter((article) => article?.title === articleTitle);
+  // The supplied CSV has one known title encoding mismatch. Resolve it only
+  // for lookup, preserving the original displayed and saved article title.
+  const titleAliases = {
+    "gasc‚àö‚â•n strongly considering running for la district attorney job":
+      "gascón strongly considering running for la district attorney job",
+  };
+  const lookupTitle = titleAliases[articleTitle] || articleTitle;
+  const matches = rawAnnotations.filter((article) => article?.title === lookupTitle);
   if (matches.length === 0) {
     throw new Error(`No annotations found for article: ${articleTitle}`);
   }
@@ -337,13 +344,14 @@ function getAnnotationsForArticle(rawAnnotations, articleIndex, articleTitle) {
   const annotationLists = matches.map((article) =>
     flattenAnnotationNode(article.annotations)
   );
-  // Duplicate titles in the supplied NP set have equivalent paragraph labels.
+  // Duplicate titles must have equivalent annotation spans and paragraph labels.
   // Reject conflicting matches instead of silently attaching a different label.
   const signature = (annotations) => JSON.stringify(
     annotations.map((annotation) => [
       annotation.paragraph_index,
       normalizeAnnotationLabel(annotation.category),
       normalizeAnnotationLabel(annotation.subcategory),
+      annotation.text,
     ]).sort((a, b) => a[0] - b[0])
   );
   if (annotationLists.some((annotations) =>
@@ -638,26 +646,28 @@ function ToolMain() {
 
         if (csvRows.length !== EXPECTED_ARTICLE_COUNT) {
           throw new Error(
-            `Expected ${EXPECTED_ARTICLE_COUNT} articles in fullHitNP.csv, but loaded ${csvRows.length}.`
+            `Expected ${EXPECTED_ARTICLE_COUNT} articles in fullHitPolarizing.csv, but loaded ${csvRows.length}.`
           );
         }
 
-        // Validate the NP-only dataset before reserving any assignment counters.
+        // Validate the polarizing-only dataset before reserving assignment counters.
         const eligibleArticles = csvRows.map((row, index) =>
           prepareStudyArticle(row, index, rawAnnotations)
         );
         const invalidArticle = eligibleArticles.find(
-          (article) => !article.wholeArticleNoPolarizing
+          (article) => !article.annotations.some(
+            (annotation) => !isNoPolarizingAnnotation(annotation)
+          )
         );
         if (invalidArticle) {
           throw new Error(
-            `Article is not marked No Polarizing Language in every non-empty paragraph: ${invalidArticle.title}`
+            `Article has no polarizing annotations: ${invalidArticle.title}`
           );
         }
         // An effect cancelled during loading must not reserve articles.
         if (cancelled) return;
 
-        // NP counters use subset indices and are independent of the original set.
+        // Polarizing counters use subset indices, separate from the NP/original sets.
         const assignedIndices = await assignRandomArticleIndices(csvRows.length);
         if (assignedIndices.length === 0) {
           throw new Error("This task is full");
@@ -954,7 +964,7 @@ function ToolMain() {
         totalAnnotationsReviewed: totalReviewAnnotations,
         attentionCheckResponses,
         completionCode: COMPLETION_CODE,
-        articleDataset: "fullHitNP.csv",
+        articleDataset: "fullHitPolarizing.csv",
         articlePresentationOrder: trainingArticles.map((article, position) => ({
           position: position + 1,
           articleIndex: article.id,
