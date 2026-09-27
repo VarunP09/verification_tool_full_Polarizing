@@ -569,7 +569,7 @@ async function assignRandomArticleIndices(totalArticles) {
    Main Tool (full-study verification)
 ------------------------------ */
 
-function ToolMain() {
+function ToolMain({ prolificId }) {
   const [openDropdown, setOpenDropdown] = useState(null);
   const [showRightInstructions, setShowRightInstructions] = useState(true);
 
@@ -942,6 +942,10 @@ function ToolMain() {
 
   async function finishTask() {
     if (submitting) return;
+    if (!prolificId.trim()) {
+      setSubmitError("Please enter your Prolific ID before submitting.");
+      return;
+    }
     if (!currentArticleComplete || answeredCount !== totalReviewAnnotations) {
       setSubmitError(
         "Please answer every article response before submitting the task."
@@ -961,6 +965,7 @@ function ToolMain() {
       setSubmitError("");
 
       await push(ref(database, "fullHitSubmissions"), {
+        prolificId: prolificId.trim(),
         totalAnnotationsReviewed: totalReviewAnnotations,
         attentionCheckResponses,
         completionCode: COMPLETION_CODE,
@@ -1738,5 +1743,63 @@ function ToolMain() {
 ------------------------------ */
 
 export default function NewsAnnotationTool() {
-  return <ToolMain />;
+  const [prolificId, setProlificId] = useState("");
+  const [idSubmitted, setIdSubmitted] = useState(false);
+
+  function submitProlificId(event) {
+    event.preventDefault();
+    if (!prolificId.trim()) return;
+    setProlificId(prolificId.trim());
+    setIdSubmitted(true);
+  }
+
+  // Loading and article assignment begin only after the ID is submitted.
+  if (idSubmitted) {
+    return <ToolMain prolificId={prolificId} />;
+  }
+
+  return (
+    <div className="min-h-screen w-full flex items-center justify-center bg-gray-100 p-4">
+      <form
+        onSubmit={submitProlificId}
+        className="w-full max-w-2xl bg-white rounded-xl shadow p-8"
+      >
+        <label
+          htmlFor="prolific-id"
+          className="mb-4 block text-2xl font-bold text-gray-900"
+        >
+          What is your Prolific ID?
+        </label>
+        <input
+          id="prolific-id"
+          name="prolificId"
+          type="text"
+          value={prolificId}
+          onChange={(event) => setProlificId(event.target.value)}
+          required
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          aria-describedby="prolific-id-help"
+          className="w-full rounded-md border border-gray-300 bg-white p-3 text-gray-900"
+        />
+        <p id="prolific-id-help" className="mt-2 text-sm text-gray-600">
+          Please copy and paste your Prolific ID to continue.
+        </p>
+        <div className="mt-6 text-center">
+          <button
+            type="submit"
+            disabled={!prolificId.trim()}
+            className={
+              prolificId.trim()
+                ? "bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded"
+                : "bg-gray-400 text-white px-6 py-2 rounded cursor-not-allowed"
+            }
+          >
+            Continue
+          </button>
+        </div>
+      </form>
+    </div>
+  );
 }
