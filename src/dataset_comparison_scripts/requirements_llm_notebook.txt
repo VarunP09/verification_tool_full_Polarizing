@@ -1,0 +1,7 @@
+openai
+google-genai
+pandas
+tqdm
+jsonschema
+numpy
+python-dotenv
