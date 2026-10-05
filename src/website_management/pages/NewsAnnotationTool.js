@@ -135,7 +135,7 @@ function AgreementScale({ name, statement, value, onChange, disabled }) {
   return (
     <fieldset disabled={disabled} className="text-left">
       <legend className="mb-3 font-semibold text-gray-900">
-        Please indicate how much you agree or disagree with the following statement:
+        Now that you have finished reading, please indicate how much you agree or disagree with the following statement:
       </legend>
       <p className="mb-4 italic text-gray-900">{statement}</p>
       <div className="space-y-2">
